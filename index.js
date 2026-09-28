@@ -16,6 +16,16 @@ const client = new MongoClient(
 async function connectToMongoDB() {
   try {
     await client.connect();
+
+    const database = client.db("solevo-web");
+    const productsCollection = database.collection("products");
+
+    app.post("/products", async (req, res) => {
+      const products = req.body;
+      const result = await productsCollection.insertOne(products);
+      res.send(result);
+    });
+
     console.log("You successfully connected to MongoDB!");
     return client;
   } catch (err) {
