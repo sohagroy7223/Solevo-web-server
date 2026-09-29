@@ -26,6 +26,17 @@ async function connectToMongoDB() {
       res.send(result);
     });
 
+    app.get("/products", async (req, res) => {
+      const cursor = productsCollection.find({ isPopular: true }).project({
+        image: 1,
+        isPopular: 1,
+        stock: 1,
+        category: 1,
+      });
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
     console.log("You successfully connected to MongoDB!");
     return client;
   } catch (err) {
