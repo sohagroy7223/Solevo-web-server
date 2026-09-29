@@ -27,11 +27,23 @@ async function connectToMongoDB() {
     });
 
     app.get("/products", async (req, res) => {
-      const cursor = productsCollection.find({ isPopular: true }).project({
+      const { type } = req.query;
+
+      let query = {};
+
+      if (type === "popular") {
+        query = { isPopular: true };
+      }
+
+      if (type === "new") {
+        query = { isNew: true };
+      }
+      const cursor = productsCollection.find(query).project({
         image: 1,
         isPopular: 1,
         stock: 1,
         category: 1,
+        isNew: 1,
       });
       const result = await cursor.toArray();
       res.send(result);
