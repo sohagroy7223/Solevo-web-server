@@ -27,9 +27,10 @@ async function connectToMongoDB() {
     });
 
     app.get("/products", async (req, res) => {
-      const { type } = req.query;
+      const { type, limit, sort } = req.query;
 
       let query = {};
+      const limits = Number(limit);
 
       if (type === "popular") {
         query = { isPopular: true };
@@ -38,13 +39,24 @@ async function connectToMongoDB() {
       if (type === "new") {
         query = { isNew: true };
       }
-      const cursor = productsCollection.find(query).project({
-        image: 1,
-        isPopular: 1,
-        stock: 1,
-        category: 1,
-        isNew: 1,
-      });
+      const cursor = productsCollection
+        .find(query)
+        .sort(sort)
+        .project({
+          image: 1,
+          isPopular: 1,
+          stock: 1,
+          category: 1,
+          isNew: 1,
+          name: 1,
+          colors: 1,
+          rating: 1,
+          reviews: 1,
+          price: 1,
+          oldPrice: 1,
+          discount: 1,
+        })
+        .limit(limits);
       const result = await cursor.toArray();
       res.send(result);
     });
