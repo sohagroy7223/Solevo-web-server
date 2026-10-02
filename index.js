@@ -18,7 +18,21 @@ async function connectToMongoDB() {
     await client.connect();
 
     const database = client.db("solevo-web");
+    const usersCollection = database.collection("users");
     const productsCollection = database.collection("products");
+
+    app.post("/users", async (req, res) => {
+      const user = req.body;
+      const email = user.email;
+
+      const existEmail = await usersCollection.findOne({ email: email });
+      if (existEmail) {
+        return res.send({ message: "this user already has login" });
+      }
+
+      const result = await usersCollection.insertOne(user);
+      res.send(result);
+    });
 
     app.post("/products", async (req, res) => {
       const products = req.body;
