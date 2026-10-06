@@ -75,6 +75,20 @@ async function connectToMongoDB() {
       res.send(result);
     });
 
+    app.get("/allProducts", async (req, res) => {
+      const { search } = req.query;
+      const query = {};
+      if (search) {
+        query.$or = [
+          { name: { $regex: search, $options: "i" } },
+          { brand: { $regex: search, $options: "i" } },
+          { category: { $regex: search, $options: "i" } },
+        ];
+      }
+      const cursor = await productsCollection.find(query).toArray();
+      res.send(cursor);
+    });
+
     console.log("You successfully connected to MongoDB!");
     return client;
   } catch (err) {
