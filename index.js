@@ -20,6 +20,7 @@ async function connectToMongoDB() {
     const database = client.db("solevo-web");
     const usersCollection = database.collection("users");
     const productsCollection = database.collection("products");
+    const cardCollection = database.collection("card");
 
     app.post("/users", async (req, res) => {
       const user = req.body;
@@ -33,6 +34,8 @@ async function connectToMongoDB() {
       const result = await usersCollection.insertOne(user);
       res.send(result);
     });
+
+    // products related apis
 
     app.post("/products", async (req, res) => {
       const products = req.body;
@@ -137,6 +140,14 @@ async function connectToMongoDB() {
       }
 
       res.send(options);
+    });
+
+    // card related apis
+
+    app.post("/cards", async (req, res) => {
+      const card = req.body;
+      const result = await cardCollection.insertOne(card);
+      res.send(result);
     });
 
     console.log("You successfully connected to MongoDB!");
