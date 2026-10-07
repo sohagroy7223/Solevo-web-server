@@ -146,6 +146,11 @@ async function connectToMongoDB() {
 
     app.post("/cards", async (req, res) => {
       const card = req.body;
+      const id = card.id;
+      const existingId = await cardCollection.findOne({ id: id });
+      if (existingId) {
+        return res.send({ message: "this product already exist" });
+      }
       const result = await cardCollection.insertOne(card);
       res.send(result);
     });
