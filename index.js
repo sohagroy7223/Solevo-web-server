@@ -7,7 +7,7 @@ const port = 3000;
 app.use(cors());
 app.use(express.json());
 
-const { MongoClient } = require("mongodb");
+const { MongoClient, ObjectId } = require("mongodb");
 
 const client = new MongoClient(
   `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@crud-practice-cluster.l3ixzxm.mongodb.net/?appName=crud-practice-cluster&compressors=zlib`,
@@ -96,6 +96,13 @@ async function connectToMongoDB() {
       }
       const cursor = await productsCollection.find(query).toArray();
       res.send(cursor);
+    });
+
+    app.get("/allProducts/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await productsCollection.findOne(query);
+      res.send(result);
     });
 
     app.get("/filter-options", async (req, res) => {
