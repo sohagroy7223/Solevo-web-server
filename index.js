@@ -76,7 +76,7 @@ async function connectToMongoDB() {
     });
 
     app.get("/allProducts", async (req, res) => {
-      const { search } = req.query;
+      const { search, category, brand, gender } = req.query;
       const query = {};
       if (search) {
         query.$or = [
@@ -85,8 +85,51 @@ async function connectToMongoDB() {
           { category: { $regex: search, $options: "i" } },
         ];
       }
+      if (category) {
+        query.category = category;
+      }
+      if (brand) {
+        query.brand = brand;
+      }
+      if (gender) {
+        query.gender = gender;
+      }
       const cursor = await productsCollection.find(query).toArray();
       res.send(cursor);
+    });
+
+    app.get("/filter-options", async (req, res) => {
+      const { type, category, brand, gender } = req.query;
+
+      const query = {};
+
+      if (type !== "category" && category) {
+        query.category = category;
+      }
+
+      if (type !== "brand" && brand) {
+        query.brand = brand;
+      }
+
+      if (type !== "gender" && gender) {
+        query.gender = gender;
+      }
+
+      let options = [];
+
+      if (type === "category") {
+        options = await productsCollection.distinct("category", query);
+      }
+
+      if (type === "brand") {
+        options = await productsCollection.distinct("brand", query);
+      }
+
+      if (type === "gender") {
+        options = await productsCollection.distinct("gender", query);
+      }
+
+      res.send(options);
     });
 
     console.log("You successfully connected to MongoDB!");
