@@ -61,6 +61,8 @@ async function connectToMongoDB() {
         .sort(sort)
         .project({
           image: 1,
+          brand: 1,
+          category: 1,
           isPopular: 1,
           stock: 1,
           category: 1,
@@ -79,7 +81,14 @@ async function connectToMongoDB() {
     });
 
     app.get("/allProducts", async (req, res) => {
-      const { search, category, brand, gender } = req.query;
+      const {
+        search,
+        category,
+        brand,
+        gender,
+        limit = 0,
+        skip = 0,
+      } = req.query;
       const query = {};
       if (search) {
         query.$or = [
@@ -97,8 +106,14 @@ async function connectToMongoDB() {
       if (gender) {
         query.gender = gender;
       }
-      const cursor = await productsCollection.find(query).toArray();
-      res.send(cursor);
+      const totalProducts = await productsCollection.countDocuments(query);
+      const products = await productsCollection
+        .find(query)
+        .limit(Number(limit))
+        .skip(Number(skip))
+        .toArray();
+
+      res.send({ products, totalProducts });
     });
 
     app.get("/allProducts/:id", async (req, res) => {
