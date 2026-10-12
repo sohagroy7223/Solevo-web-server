@@ -164,10 +164,13 @@ async function connectToMongoDB() {
       const id = card.id;
       const existingId = await cardCollection.findOne({ id: id });
       if (existingId) {
-        return res.send({ message: "this product already exist" });
+        return res.send({
+          message: "this product already exist",
+          exists: true,
+        });
       }
       const result = await cardCollection.insertOne(card);
-      res.send(result);
+      res.send({ ...result, exists: false });
     });
 
     console.log("You successfully connected to MongoDB!");
