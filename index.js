@@ -68,6 +68,7 @@ async function connectToMongoDB() {
           category: 1,
           isNew: 1,
           name: 1,
+          description: 1,
           colors: 1,
           rating: 1,
           reviews: 1,
@@ -179,6 +180,13 @@ async function connectToMongoDB() {
       const email = req.query.email;
       const cursor = cardCollection.find({ email: email });
       const result = await cursor.toArray();
+      res.send(result);
+    });
+
+    app.delete("/cards/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await cardCollection.deleteOne(query);
       res.send(result);
     });
 
