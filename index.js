@@ -161,8 +161,10 @@ async function connectToMongoDB() {
 
     app.post("/cards", async (req, res) => {
       const card = req.body;
-      const id = card.id;
-      const existingId = await cardCollection.findOne({ id: id });
+      const existingId = await cardCollection.findOne({
+        email: card.email,
+        id: card.id,
+      });
       if (existingId) {
         return res.send({
           message: "this product already exist",
@@ -171,6 +173,13 @@ async function connectToMongoDB() {
       }
       const result = await cardCollection.insertOne(card);
       res.send({ ...result, exists: false });
+    });
+
+    app.get("/cards", async (req, res) => {
+      const email = req.query.email;
+      const cursor = cardCollection.find({ email: email });
+      const result = await cursor.toArray();
+      res.send(result);
     });
 
     console.log("You successfully connected to MongoDB!");
