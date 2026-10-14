@@ -4,6 +4,8 @@ require("dotenv").config();
 const app = express();
 const port = 3000;
 
+const stripe = require("stripe")(process.env.STRIPE_SECRETE);
+
 app.use(cors());
 app.use(express.json());
 
@@ -156,6 +158,38 @@ async function connectToMongoDB() {
       }
 
       res.send(options);
+    });
+
+    // Payments related APIs
+
+    app.post("/create-checkout-session", async (req, res) => {
+      const paymentInfo = req.body;
+
+      const amount = parseInt(paymentInfo.cost) * 100;
+      const session = await stripe.checkout.sessions.create({
+        line_items: [
+          {
+            // Provide the exact Price ID (for example, price_1234) of the product you want to sell
+            price_data: {
+              currency: "usd",
+              unit_amount: amount,
+              product_data: {
+                name: paymentInfo.productName,
+              },
+            },
+            quantity: 1,
+          },
+        ],
+        mode: "payment",
+        metadata: {
+          productId: paymentInfo._id,
+          productName: paymentInfo.productName,
+        },
+        customer_email: paymentInfo.email,
+        success_url: `${process.env.SIDE_DOMAIN}/checkout?success=true`,
+      });
+
+      res.send({ url: session.url });
     });
 
     // card related apis
