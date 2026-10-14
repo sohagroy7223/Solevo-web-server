@@ -186,7 +186,7 @@ async function connectToMongoDB() {
           productName: paymentInfo.productName,
         },
         customer_email: paymentInfo.email,
-        success_url: `${process.env.SIDE_DOMAIN}/checkout?success=true`,
+        success_url: `${process.env.SIDE_DOMAIN.replace(/\/+$/, "")}/dashboard/payment-success?session_id={CHECKOUT_SESSION_ID}`,
       });
 
       res.send({ url: session.url });
