@@ -233,6 +233,12 @@ async function connectToMongoDB() {
       res.send(result);
     });
 
+    app.get("/arrivals", async (req, res) => {
+      const cursor = arrivalsCollection.find();
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
     console.log("You successfully connected to MongoDB!");
     return client;
   } catch (err) {
