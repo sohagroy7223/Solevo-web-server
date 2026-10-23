@@ -23,6 +23,7 @@ async function connectToMongoDB() {
     const usersCollection = database.collection("users");
     const productsCollection = database.collection("products");
     const cardCollection = database.collection("card");
+    const arrivalsCollection = database.collection("arrivals");
 
     app.post("/users", async (req, res) => {
       const user = req.body;
@@ -187,6 +188,7 @@ async function connectToMongoDB() {
         },
         customer_email: paymentInfo.email,
         success_url: `${process.env.SIDE_DOMAIN.replace(/\/+$/, "")}/dashboard/payment-success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${process.env.SIDE_DOMAIN.replace(/\/+$/, "")}/dashboard/payment-cancel`,
       });
 
       res.send({ url: session.url });
@@ -221,6 +223,13 @@ async function connectToMongoDB() {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) };
       const result = await cardCollection.deleteOne(query);
+      res.send(result);
+    });
+
+    // arrivals related apis
+    app.post("/arrivals", async (req, res) => {
+      const data = req.body;
+      const result = await arrivalsCollection.insertOne(data);
       res.send(result);
     });
 
