@@ -24,6 +24,7 @@ async function connectToMongoDB() {
     const productsCollection = database.collection("products");
     const cardCollection = database.collection("card");
     const arrivalsCollection = database.collection("arrivals");
+    const paymentCollection = database.collection("payments");
 
     app.post("/users", async (req, res) => {
       const user = req.body;
@@ -165,6 +166,7 @@ async function connectToMongoDB() {
 
     app.post("/create-checkout-session", async (req, res) => {
       const paymentInfo = req.body;
+      console.log(paymentInfo);
 
       const amount = parseInt(paymentInfo.cost) * 100;
       const session = await stripe.checkout.sessions.create({
@@ -183,7 +185,7 @@ async function connectToMongoDB() {
         ],
         mode: "payment",
         metadata: {
-          productId: paymentInfo._id,
+          productId: paymentInfo.productId,
           productName: paymentInfo.productName,
         },
         customer_email: paymentInfo.email,
@@ -192,6 +194,136 @@ async function connectToMongoDB() {
       });
 
       res.send({ url: session.url });
+    });
+
+    app.patch("/payment-success", async (req, res) => {
+      const sessionId = req.query.session_id;
+
+      if (!sessionId) {
+        return res.status(400).send({
+          success: false,
+          message: "Session ID is required",
+        });
+      }
+
+      let dbSession;
+
+      try {
+        // 1. Verify payment directly with Stripe
+        const stripeSession =
+          await stripe.checkout.sessions.retrieve(sessionId);
+
+        if (
+          stripeSession.status !== "complete" ||
+          stripeSession.payment_status !== "paid"
+        ) {
+          return res.status(400).send({
+            success: false,
+            message: "Payment is not completed",
+          });
+        }
+
+        const productId = stripeSession.metadata?.productId;
+        const productName = stripeSession.metadata?.productName;
+        const email =
+          stripeSession.customer_details?.email || stripeSession.customer_email;
+
+        console.log("Product ID:", productId);
+        console.log("Product Name:", productName);
+        console.log("Customer Email:", email);
+        console.log("Metadata:", stripeSession.metadata);
+
+        if (!productId || !email || !ObjectId.isValid(productId)) {
+          return res.status(400).send({
+            success: false,
+            message: "Invalid payment information",
+          });
+        }
+
+        // 2. Check duplicate payment
+        const paymentExist = await paymentCollection.findOne({
+          sessionId: stripeSession.id,
+        });
+
+        if (paymentExist) {
+          return res.send({
+            success: true,
+            message: "Payment already processed",
+            transactionId: paymentExist.transactionId,
+          });
+        }
+
+        // 3. Save payment, reduce stock and remove cart item
+        dbSession = client.startSession();
+
+        await dbSession.withTransaction(async () => {
+          // Check again inside the transaction
+          const duplicate = await paymentCollection.findOne(
+            { sessionId: stripeSession.id },
+            { session: dbSession },
+          );
+
+          if (duplicate) return;
+
+          // Reduce stock only if stock is greater than zero
+          const stockResult = await productsCollection.updateOne(
+            {
+              _id: new ObjectId(productId),
+              stock: { $gt: 0 },
+            },
+            {
+              $inc: { stock: -1 },
+            },
+            { session: dbSession },
+          );
+
+          if (stockResult.modifiedCount !== 1) {
+            throw new Error("Product is out of stock");
+          }
+
+          // Remove only the purchased product from this user's cart
+          await cardCollection.deleteOne(
+            {
+              email,
+              id: productId,
+            },
+            { session: dbSession },
+          );
+
+          // Save payment history
+          await paymentCollection.insertOne(
+            {
+              email,
+              productId,
+              productName,
+              amount: stripeSession.amount_total / 100,
+              currency: stripeSession.currency,
+              transactionId: stripeSession.payment_intent,
+              sessionId: stripeSession.id,
+              paymentStatus: "paid",
+              paidAt: new Date(),
+            },
+            { session: dbSession },
+          );
+        });
+
+        return res.send({
+          success: true,
+          message: "Payment processed successfully",
+          transactionId: stripeSession.payment_intent,
+        });
+      } catch (error) {
+        console.error("Payment processing error:", error);
+
+        return res.status(500).send({
+          success: false,
+          message: "Payment processing failed",
+        });
+      } finally {
+        if (dbSession) {
+          await dbSession.endSession();
+        }
+      }
     });
 
     // card related apis
