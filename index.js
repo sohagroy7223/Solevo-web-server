@@ -228,11 +228,6 @@ async function connectToMongoDB() {
         const email =
           stripeSession.customer_details?.email || stripeSession.customer_email;
 
-        // console.log("Product ID:", productId);
-        // console.log("Product Name:", productName);
-        // console.log("Customer Email:", email);
-        // console.log("Metadata:", stripeSession.metadata);
-
         if (!productId || !email || !ObjectId.isValid(productId)) {
           return res.status(400).send({
             success: false,
@@ -327,8 +322,20 @@ async function connectToMongoDB() {
     });
 
     app.get("/payments-history", async (req, res) => {
-      const cursor = paymentCollection.find();
+      const email = req.query.email;
+      const query = {};
+      if (email) {
+        query.email = email;
+      }
+      const cursor = paymentCollection.find(query);
       const result = await cursor.toArray();
+      res.send(result);
+    });
+
+    app.delete("/payment/:id", async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
+      const result = await paymentCollection.deleteOne(query);
       res.send(result);
     });
 
