@@ -228,10 +228,10 @@ async function connectToMongoDB() {
         const email =
           stripeSession.customer_details?.email || stripeSession.customer_email;
 
-        console.log("Product ID:", productId);
-        console.log("Product Name:", productName);
-        console.log("Customer Email:", email);
-        console.log("Metadata:", stripeSession.metadata);
+        // console.log("Product ID:", productId);
+        // console.log("Product Name:", productName);
+        // console.log("Customer Email:", email);
+        // console.log("Metadata:", stripeSession.metadata);
 
         if (!productId || !email || !ObjectId.isValid(productId)) {
           return res.status(400).send({
@@ -324,6 +324,12 @@ async function connectToMongoDB() {
           await dbSession.endSession();
         }
       }
+    });
+
+    app.get("/payments-history", async (req, res) => {
+      const cursor = paymentCollection.find();
+      const result = await cursor.toArray();
+      res.send(result);
     });
 
     // card related apis
