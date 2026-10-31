@@ -414,10 +414,6 @@ async function connectToMongoDB() {
   }
 }
 connectToMongoDB();
-// // Call this only when your application terminates
-// export async function disconnectFromMongoDB() {
-//   await client.close();
-// }
 
 app.get("/", (req, res) => {
   res.send("solevo in running");
