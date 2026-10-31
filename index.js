@@ -3,8 +3,13 @@ const cors = require("cors");
 require("dotenv").config();
 const app = express();
 const port = 3000;
+const crypto = require("crypto");
 
 const stripe = require("stripe")(process.env.STRIPE_SECRETE);
+
+const generateTrackingId = () => {
+  return `SOLEVO-${Date.now()}-${crypto.randomBytes(3).toString("hex").toUpperCase()}`;
+};
 
 app.use(cors());
 app.use(express.json());
@@ -166,7 +171,7 @@ async function connectToMongoDB() {
 
     app.post("/create-checkout-session", async (req, res) => {
       const paymentInfo = req.body;
-      console.log(paymentInfo);
+      // console.log(paymentInfo);
 
       const amount = parseInt(paymentInfo.cost) * 100;
       const session = await stripe.checkout.sessions.create({
@@ -209,7 +214,7 @@ async function connectToMongoDB() {
       let dbSession;
 
       try {
-        // 1. Verify payment directly with Stripe
+        // 1. Verify payment with Stripe
         const stripeSession =
           await stripe.checkout.sessions.retrieve(sessionId);
 
@@ -225,10 +230,16 @@ async function connectToMongoDB() {
 
         const productId = stripeSession.metadata?.productId;
         const productName = stripeSession.metadata?.productName;
+
         const email =
           stripeSession.customer_details?.email || stripeSession.customer_email;
 
-        if (!productId || !email || !ObjectId.isValid(productId)) {
+        if (
+          !productId ||
+          !productName ||
+          !email ||
+          !ObjectId.isValid(productId)
+        ) {
           return res.status(400).send({
             success: false,
             message: "Invalid payment information",
@@ -245,22 +256,28 @@ async function connectToMongoDB() {
             success: true,
             message: "Payment already processed",
             transactionId: paymentExist.transactionId,
+            trackingId: paymentExist.trackingId,
           });
         }
 
-        // 3. Save payment, reduce stock and remove cart item
+        // 3. Start MongoDB transaction
         dbSession = client.startSession();
 
+        let trackingId;
+
         await dbSession.withTransaction(async () => {
-          // Check again inside the transaction
+          // Check duplicate again
           const duplicate = await paymentCollection.findOne(
             { sessionId: stripeSession.id },
             { session: dbSession },
           );
 
-          if (duplicate) return;
+          if (duplicate) {
+            trackingId = duplicate.trackingId;
+            return;
+          }
 
-          // Reduce stock only if stock is greater than zero
+          // 4. Reduce product stock
           const stockResult = await productsCollection.updateOne(
             {
               _id: new ObjectId(productId),
@@ -276,7 +293,7 @@ async function connectToMongoDB() {
             throw new Error("Product is out of stock");
           }
 
-          // Remove only the purchased product from this user's cart
+          // 5. Remove purchased product from cart
           await cardCollection.deleteOne(
             {
               email,
@@ -285,7 +302,10 @@ async function connectToMongoDB() {
             { session: dbSession },
           );
 
-          // Save payment history
+          // 6. Generate tracking ID
+          trackingId = generateTrackingId();
+
+          // 7. Save payment history
           await paymentCollection.insertOne(
             {
               email,
@@ -295,7 +315,9 @@ async function connectToMongoDB() {
               currency: stripeSession.currency,
               transactionId: stripeSession.payment_intent,
               sessionId: stripeSession.id,
+              trackingId,
               paymentStatus: "paid",
+              orderStatus: "processing",
               paidAt: new Date(),
             },
             { session: dbSession },
@@ -306,13 +328,14 @@ async function connectToMongoDB() {
           success: true,
           message: "Payment processed successfully",
           transactionId: stripeSession.payment_intent,
+          trackingId,
         });
       } catch (error) {
         console.error("Payment processing error:", error);
 
         return res.status(500).send({
           success: false,
-          message: "Payment processing failed",
+          message: error.message || "Payment processing failed",
         });
       } finally {
         if (dbSession) {
